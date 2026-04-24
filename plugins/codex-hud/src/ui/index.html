@@ -1,0 +1,66 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Codex HUD</title>
+    <link rel="stylesheet" href="/styles.css" />
+  </head>
+  <body>
+    <main class="shell">
+      <header class="topbar">
+        <div>
+          <p class="eyebrow">Local sidecar</p>
+          <h1>Codex HUD</h1>
+        </div>
+        <div class="connection" id="connection">Connecting</div>
+      </header>
+
+      <section class="metrics" aria-label="Session metrics">
+        <div class="metric">
+          <span class="metric-label">Sessions</span>
+          <strong id="session-count">0</strong>
+        </div>
+        <div class="metric">
+          <span class="metric-label">Tool calls</span>
+          <strong id="tool-count">0</strong>
+        </div>
+        <div class="metric danger">
+          <span class="metric-label">Failures</span>
+          <strong id="failure-count">0</strong>
+        </div>
+        <div class="metric warn">
+          <span class="metric-label">Slow calls</span>
+          <strong id="slow-count">0</strong>
+        </div>
+      </section>
+
+      <section class="layout">
+        <aside class="panel session-panel" aria-label="Active session">
+          <div class="panel-heading">
+            <h2>Active Session</h2>
+            <span id="session-status" class="pill">unknown</span>
+          </div>
+          <dl class="details">
+            <dt>Session</dt>
+            <dd id="session-id">No session yet</dd>
+            <dt>Workspace</dt>
+            <dd id="workspace">Waiting for events</dd>
+            <dt>Last activity</dt>
+            <dd id="last-activity">-</dd>
+          </dl>
+        </aside>
+
+        <section class="panel timeline-panel" aria-label="Tool timeline">
+          <div class="panel-heading">
+            <h2>Tool Timeline</h2>
+            <button id="refresh" type="button">Refresh</button>
+          </div>
+          <div id="timeline" class="timeline empty">Waiting for Codex hook events</div>
+        </section>
+      </section>
+    </main>
+
+    <script type="module" src="/app.js"></script>
+  </body>
+</html>

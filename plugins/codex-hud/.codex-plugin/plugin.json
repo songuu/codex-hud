@@ -1,0 +1,42 @@
+{
+  "name": "codex-hud",
+  "version": "0.1.0",
+  "description": "Terminal-first HUD for observing local Codex sessions, tool calls, and workflow state.",
+  "author": {
+    "name": "Local Developer",
+    "email": "local@example.invalid",
+    "url": "https://example.invalid/codex-hud"
+  },
+  "homepage": "https://example.invalid/codex-hud",
+  "repository": "https://example.invalid/codex-hud.git",
+  "license": "MIT",
+  "keywords": [
+    "codex",
+    "hud",
+    "observability"
+  ],
+  "skills": "./skills/",
+  "hooks": "./hooks.json",
+  "interface": {
+    "displayName": "Codex HUD",
+    "shortDescription": "Claude-style terminal HUD for Codex session observability.",
+    "longDescription": "Collects Codex hook events into a local event queue and renders Claude-style terminal HUD output, with optional daemon APIs for status, streams, and diagnostics.",
+    "developerName": "Local Developer",
+    "category": "Productivity",
+    "capabilities": [
+      "Interactive",
+      "Observe",
+      "Local",
+      "Terminal"
+    ],
+    "websiteURL": "https://example.invalid/codex-hud",
+    "privacyPolicyURL": "https://example.invalid/codex-hud/privacy",
+    "termsOfServiceURL": "https://example.invalid/codex-hud/terms",
+    "defaultPrompt": [
+      "Show my Codex HUD status.",
+      "Start the local Codex HUD.",
+      "Export Codex HUD diagnostics."
+    ],
+    "brandColor": "#2563EB"
+  }
+}

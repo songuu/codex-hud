@@ -1,0 +1,21 @@
+{
+  "name": "codex-hud-workspace",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "Repo-local Codex HUD sidecar plugin workspace.",
+  "scripts": {
+    "dev": "node plugins/codex-hud/scripts/hud-daemon.mjs",
+    "hud": "node plugins/codex-hud/scripts/hud-daemon.mjs",
+    "hud:terminal": "node plugins/codex-hud/scripts/hud-terminal.mjs",
+    "hud:once": "node plugins/codex-hud/scripts/hud-terminal.mjs --once --no-color",
+    "hook": "node plugins/codex-hud/scripts/hook-runner.mjs",
+    "diagnostics": "node plugins/codex-hud/scripts/export-diagnostics.mjs",
+    "validate": "node plugins/codex-hud/scripts/validate.mjs",
+    "test": "node --test tests/*.test.mjs",
+    "preflight": "npm run validate && npm test"
+  },
+  "engines": {
+    "node": ">=18"
+  }
+}
