@@ -19,7 +19,8 @@ Important boundary: a Codex plugin can collect hook events and optionally print 
 
 - `CODEX_HUD_RENDER=inline` for opt-in hook-time terminal output.
 - `npm run hud:terminal` for a live terminal companion that repaints a Claude-style HUD.
-- A future PTY wrapper or upstream Codex renderer API for exact in-conversation overlay behavior.
+- `npm run codex-hub -- -- <codex args>` to launch Codex through the HUD wrapper.
+- A future upstream Codex renderer API for exact native in-conversation overlay behavior.
 
 ## Usage
 
@@ -55,6 +56,67 @@ Watch the terminal HUD:
 npm run hud:terminal
 ```
 
+Launch Codex with the realtime HUD wrapper:
+
+```bash
+npm run codex-hub -- --model gpt-5.5
+```
+
+Install the global PowerShell shim so `codex-hub` starts through the wrapper in new terminals from any directory:
+
+```powershell
+npm run codex-hud:install:global
+```
+
+This writes the managed shim to the current user's PowerShell 7 and Windows PowerShell profiles. For current-host-only installation, use:
+
+```powershell
+npm run codex-hud:install:powershell
+```
+
+Then open a new PowerShell terminal and run:
+
+```powershell
+codex-hub
+```
+
+The global shim exposes these commands:
+
+```powershell
+codex              # original upstream Codex CLI
+codex-hub          # starts Codex through the HUD wrapper
+codex-hud          # compatibility alias for codex-hub
+codex-raw          # explicit upstream Codex bypass
+codex-hub-doctor   # verifies global command resolution
+```
+
+The shim records the Codex command PowerShell would have used and passes it into the wrapper, so the HUD path does not silently switch to a different `codex.exe` on your `PATH`.
+It also passes the current PowerShell executable path into the wrapper so `node-pty` does not need to find `pwsh` from `PATH`.
+
+Global wrapper state is stored under your user profile by default:
+
+```text
+%LOCALAPPDATA%\codex-hud
+```
+
+This keeps `codex` working even when your current directory is not writable, such as `C:\WINDOWS\system32`. Set `CODEX_HUD_HOME` when you intentionally want a different HUD state directory.
+
+The terminal HUD reads Codex runtime metadata from `~/.codex/config.toml`, including model, reasoning effort, service tier, project trust, sandbox mode, configured MCP servers, and enabled plugins. When hook events are not arriving yet, the HUD still shows the event store path, event file count, and current working directory so missing tool activity is diagnosable instead of silent.
+
+The wrapper selects adapters in this order:
+
+1. Codex host renderer API, when a future API is detected.
+2. `node-pty`, when installed as an optional dependency.
+3. stdio fallback, which is usable but cannot guarantee a stable bottom overlay in every terminal.
+
+In non-interactive commands such as `codex --version`, auto mode skips PTY and uses stdio so CLI output stays clean.
+
+Install optional PTY support when you want the wrapper to own a real pseudo-terminal:
+
+```bash
+npm install
+```
+
 Opt into inline hook output:
 
 ```bash
@@ -73,8 +135,10 @@ npm run diagnostics
 - `plugins/codex-hud/hooks.json` registers lifecycle and tool hooks.
 - `plugins/codex-hud/scripts/hook-runner.mjs` writes normalized local events.
 - `plugins/codex-hud/scripts/hud-terminal.mjs` renders the Claude-style terminal HUD.
+- `plugins/codex-hud/scripts/codex-hud.mjs` wraps `codex` and owns realtime status repainting.
 - `plugins/codex-hud/src/core/` owns event schemas, redaction, storage, and reduction.
 - `plugins/codex-hud/src/terminal/` owns terminal-safe ANSI rendering.
+- `plugins/codex-hud/src/wrapper/` owns adapter selection, process launch, and bottom HUD supervision.
 - `plugins/codex-hud/src/daemon/` serves health, status, event, and stream endpoints.
 - `plugins/codex-hud/src/ui/` contains the secondary Web HUD.
 

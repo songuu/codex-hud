@@ -9,11 +9,18 @@
     "hud": "node plugins/codex-hud/scripts/hud-daemon.mjs",
     "hud:terminal": "node plugins/codex-hud/scripts/hud-terminal.mjs",
     "hud:once": "node plugins/codex-hud/scripts/hud-terminal.mjs --once --no-color",
+    "codex-hub": "node plugins/codex-hud/scripts/codex-hud.mjs",
+    "codex-hud": "node plugins/codex-hud/scripts/codex-hud.mjs",
+    "codex-hud:install:powershell": "node plugins/codex-hud/scripts/install-powershell-shim.mjs",
+    "codex-hud:install:global": "node plugins/codex-hud/scripts/install-powershell-shim.mjs --global",
     "hook": "node plugins/codex-hud/scripts/hook-runner.mjs",
     "diagnostics": "node plugins/codex-hud/scripts/export-diagnostics.mjs",
     "validate": "node plugins/codex-hud/scripts/validate.mjs",
     "test": "node --test tests/*.test.mjs",
     "preflight": "npm run validate && npm test"
+  },
+  "optionalDependencies": {
+    "node-pty": "^1.1.0"
   },
   "engines": {
     "node": ">=18"

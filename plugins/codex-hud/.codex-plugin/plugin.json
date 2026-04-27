@@ -1,7 +1,7 @@
 {
   "name": "codex-hud",
   "version": "0.1.0",
-  "description": "Terminal-first HUD for observing local Codex sessions, tool calls, and workflow state.",
+  "description": "Terminal-first realtime HUD for observing local Codex sessions, tool calls, and workflow state.",
   "author": {
     "name": "Local Developer",
     "email": "local@example.invalid",
@@ -20,14 +20,15 @@
   "interface": {
     "displayName": "Codex HUD",
     "shortDescription": "Claude-style terminal HUD for Codex session observability.",
-    "longDescription": "Collects Codex hook events into a local event queue and renders Claude-style terminal HUD output, with optional daemon APIs for status, streams, and diagnostics.",
+    "longDescription": "Collects Codex hook events into a local event queue and renders Claude-style terminal HUD output through a realtime wrapper, with optional daemon APIs for status, streams, and diagnostics.",
     "developerName": "Local Developer",
     "category": "Productivity",
     "capabilities": [
       "Interactive",
       "Observe",
       "Local",
-      "Terminal"
+      "Terminal",
+      "Wrapper"
     ],
     "websiteURL": "https://example.invalid/codex-hud",
     "privacyPolicyURL": "https://example.invalid/codex-hud/privacy",

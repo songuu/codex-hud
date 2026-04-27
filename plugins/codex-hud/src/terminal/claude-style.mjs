@@ -1,5 +1,6 @@
 import fs from "node:fs";
 import path from "node:path";
+import { resolveEventsDir, resolveHudHome } from "../core/paths.mjs";
 
 const DEFAULT_WIDTH = 88;
 const DEFAULT_TOOL_ROWS = 5;
@@ -27,8 +28,8 @@ export function renderTerminalHud(status, options = {}) {
   const totalTools = toolCalls.length;
   const progressPercent = totalTools > 0 ? Math.round((completedTools / totalTools) * 100) : 100;
   const model = context.model || options.model || "Codex";
-  const statusParts = buildStatusParts({ context, session, now });
-  const summary = buildSummary({ session, toolCalls, completedTools, totalTools, color });
+  const statusParts = buildStatusParts({ context, session, status, now });
+  const summary = buildSummary({ context, session, toolCalls, completedTools, totalTools, color });
   const maxToolRows = options.maxToolRows ?? (options.compact ? 3 : DEFAULT_TOOL_ROWS);
   const recentCalls = toolCalls.slice(-maxToolRows);
 
@@ -37,13 +38,17 @@ export function renderTerminalHud(status, options = {}) {
       `${progressPercent}%`,
       "green",
       color,
-    )}${statusParts.length ? ` | ${statusParts.join(" | ")}` : ""}`,
-    summary,
-    ...recentCalls.map((call) => renderToolCall(call, { color, now })),
+    )}${statusParts.primary.length ? ` | ${statusParts.primary.join(" | ")}` : ""}`,
   ];
 
+  if (statusParts.details.length > 0) {
+    lines.push(paint(`· ${statusParts.details.join(" | ")}`, "dim", color));
+  }
+
+  lines.push(summary, ...recentCalls.map((call) => renderToolCall(call, { color, now })));
+
   if (recentCalls.length === 0) {
-    lines.push(paint("· No tool activity captured yet", "dim", color));
+    lines.push(paint(buildNoActivityLine(context), "dim", color));
   }
 
   return lines.map((line) => fitLine(line, width)).join("\n");
@@ -52,13 +57,27 @@ export function renderTerminalHud(status, options = {}) {
 export function collectTerminalContext(options = {}) {
   const cwd = options.cwd || process.cwd();
   const env = options.env ?? process.env;
+  const config = readCodexConfig({ env });
+  const codexConfig = parseCodexConfig(config, { cwd });
+  const hudHome = resolveHudHome({ cwd, env });
+  const eventsDir = resolveEventsDir({ cwd, env });
 
   return {
-    model: env.CODEX_HUD_MODEL || env.CODEX_MODEL || env.CLAUDE_MODEL || "Codex",
+    cwd,
+    eventFiles: countJsonlFiles(eventsDir),
+    hudHome,
+    model: buildModelLabel({
+      model: env.CODEX_HUD_MODEL || env.CODEX_MODEL || env.CLAUDE_MODEL || codexConfig.model || "Codex",
+      reasoning: env.CODEX_HUD_REASONING || env.CODEX_REASONING || codexConfig.reasoning,
+      serviceTier: env.CODEX_HUD_SERVICE_TIER || env.CODEX_SERVICE_TIER || codexConfig.serviceTier,
+    }),
     instructionFiles: countExistingFiles(cwd, ["AGENTS.md", "CLAUDE.md"]),
     rules: countFilesInDirectories(cwd, ["rules", path.join(".codex", "rules")]),
-    mcps: countExistingFiles(cwd, [".mcp.json", "mcp.json"]),
+    mcps: countExistingFiles(cwd, [".mcp.json", "mcp.json"]) + codexConfig.mcpServers,
     hooks: countHookFiles(cwd),
+    plugins: codexConfig.enabledPlugins,
+    projectTrust: codexConfig.projectTrust,
+    sandbox: env.CODEX_HUD_SANDBOX || codexConfig.sandbox,
   };
 }
 
@@ -79,35 +98,53 @@ function pickActiveSession(status) {
   );
 }
 
-function buildStatusParts({ context, session, now }) {
-  const parts = [];
+function buildStatusParts({ context, session, status, now }) {
+  const primary = [];
+  const details = [];
+
+  if (context.projectTrust) {
+    primary.push(context.projectTrust);
+  }
+
+  if (context.sandbox) {
+    primary.push(context.sandbox);
+  }
 
   if (Number.isFinite(context.instructionFiles) && context.instructionFiles > 0) {
-    parts.push(`${context.instructionFiles} context`);
+    details.push(`${context.instructionFiles} context`);
   }
 
   if (Number.isFinite(context.rules)) {
-    parts.push(`${context.rules} rules`);
+    details.push(`${context.rules} rules`);
   }
 
   if (Number.isFinite(context.mcps)) {
-    parts.push(`${context.mcps} MCPs`);
+    details.push(`${context.mcps} ${pluralize("MCP", context.mcps)}`);
+  }
+
+  if (Number.isFinite(context.plugins)) {
+    details.push(`${context.plugins} ${pluralize("plugin", context.plugins)}`);
   }
 
   if (Number.isFinite(context.hooks)) {
-    parts.push(`${context.hooks} hooks`);
+    details.push(`${context.hooks} ${pluralize("hook", context.hooks)}`);
+  }
+
+  if (Number.isFinite(status?.eventCount)) {
+    details.push(`${status.eventCount} ${pluralize("event", status.eventCount)}`);
   }
 
   if (session?.startedAt) {
-    parts.push(`◷ ${formatElapsed(session.startedAt, now)}`);
+    primary.push(`◷ ${formatElapsed(session.startedAt, now)}`);
   }
 
-  return parts;
+  return { details, primary };
 }
 
-function buildSummary({ session, toolCalls, completedTools, totalTools, color }) {
+function buildSummary({ context, session, toolCalls, completedTools, totalTools, color }) {
   if (!session) {
-    return paint("· Waiting for Codex hook events", "dim", color);
+    const store = context.hudHome ? ` · store ${context.hudHome}` : "";
+    return paint(`· Waiting for Codex hook events${store}`, "dim", color);
   }
 
   const runningTools = toolCalls.filter((call) => call.status === "running").length;
@@ -126,6 +163,12 @@ function buildSummary({ session, toolCalls, completedTools, totalTools, color })
   }
 
   return `${paint("✓", "green", color)} All tools complete (${completedTools}/${totalTools})`;
+}
+
+function buildNoActivityLine(context = {}) {
+  const cwd = context.cwd ? `cwd ${context.cwd} · ` : "";
+  const eventFiles = Number.isFinite(context.eventFiles) ? `${context.eventFiles} ${pluralize("event file", context.eventFiles)} · ` : "";
+  return `· ${cwd}${eventFiles}No tool activity captured yet`;
 }
 
 function renderToolCall(call, options) {
@@ -210,6 +253,119 @@ function normalizeWidth(width) {
   const parsed = Number(width);
   if (!Number.isFinite(parsed)) return DEFAULT_WIDTH;
   return Math.max(40, Math.min(160, Math.round(parsed)));
+}
+
+function buildModelLabel({ model, reasoning, serviceTier }) {
+  return [model, reasoning, serviceTier]
+    .filter((part) => typeof part === "string" && part.trim() !== "")
+    .join(" ");
+}
+
+function readCodexConfig(options = {}) {
+  const env = options.env ?? process.env;
+  const codexHome = env.CODEX_HOME || path.join(env.USERPROFILE || env.HOME || "", ".codex");
+  const configPath = path.join(codexHome, "config.toml");
+
+  try {
+    return fs.readFileSync(configPath, "utf8");
+  } catch {
+    return "";
+  }
+}
+
+function parseCodexConfig(contents, options = {}) {
+  const cwd = options.cwd || process.cwd();
+  return {
+    enabledPlugins: countEnabledPlugins(contents),
+    mcpServers: countTomlSections(contents, "mcp_servers"),
+    model: readTomlString(contents, "model"),
+    projectTrust: readProjectTrust(contents, cwd),
+    reasoning: readTomlString(contents, "model_reasoning_effort"),
+    sandbox: readTomlSectionString(contents, "windows", "sandbox"),
+    serviceTier: readTomlString(contents, "service_tier"),
+  };
+}
+
+function readTomlString(contents, key) {
+  const match = new RegExp(`^${escapeRegExp(key)}\\s*=\\s*"([^"]*)"`, "m").exec(contents || "");
+  return match?.[1];
+}
+
+function readTomlSectionString(contents, sectionName, key) {
+  const section = readTomlSection(contents, sectionName);
+  return readTomlString(section, key);
+}
+
+function readProjectTrust(contents, cwd) {
+  const normalizedCwd = normalizeProjectPath(cwd);
+  const sectionPattern = /^\[projects\.'([^']+)'\]([\s\S]*?)(?=^\[|\z)/gm;
+  let match;
+
+  while ((match = sectionPattern.exec(contents || ""))) {
+    if (normalizeProjectPath(match[1]) !== normalizedCwd) continue;
+    return readTomlString(match[2], "trust_level");
+  }
+
+  return undefined;
+}
+
+function readTomlSection(contents, sectionName) {
+  const escapedName = escapeRegExp(sectionName);
+  const match = new RegExp(`^\\[${escapedName}\\]([\\s\\S]*?)(?=^\\[|\\z)`, "m").exec(contents || "");
+  return match?.[1] || "";
+}
+
+function countTomlSections(contents, prefix) {
+  const escapedPrefix = escapeRegExp(prefix);
+  const matches = String(contents || "").match(new RegExp(`^\\[${escapedPrefix}\\.`, "gm"));
+  return matches ? matches.length : 0;
+}
+
+function countEnabledPlugins(contents) {
+  let count = 0;
+  let inPluginSection = false;
+  let enabled = false;
+
+  for (const line of String(contents || "").split(/\r?\n/)) {
+    if (/^\[/.test(line)) {
+      if (inPluginSection && enabled) {
+        count += 1;
+      }
+      inPluginSection = /^\[plugins\.[^\]]+\]/.test(line);
+      enabled = false;
+      continue;
+    }
+
+    if (inPluginSection && /^enabled\s*=\s*true\s*$/.test(line.trim())) {
+      enabled = true;
+    }
+  }
+
+  if (inPluginSection && enabled) {
+      count += 1;
+  }
+
+  return count;
+}
+
+function normalizeProjectPath(value) {
+  return String(value || "")
+    .replace(/^\\\\\?\\/, "")
+    .replace(/\//g, "\\")
+    .replace(/\\+$/g, "")
+    .toLowerCase();
+}
+
+function countJsonlFiles(directory) {
+  return safeReadDirectory(directory).filter((entry) => entry.isFile() && entry.name.endsWith(".jsonl")).length;
+}
+
+function pluralize(label, count) {
+  return Number(count) === 1 ? label : `${label}s`;
+}
+
+function escapeRegExp(value) {
+  return String(value).replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 }
 
 function countExistingFiles(cwd, relativePaths) {
